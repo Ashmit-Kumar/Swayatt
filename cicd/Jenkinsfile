@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_IMAGE_NAME = 'your-dockerhub-username/devops-task-app'
+        AWS_REGION = 'us-east-1'
+    }
+    
+    stages {
+        stage('Build') {
+            steps {
+                dir('app') {
+                    sh 'npm install'
+                    sh 'npm test'
+                }
+            }
+        }
+        
+        stage('Dockerize') {
+            steps {
+                sh 'docker build -f cicd/docker/Dockerfile -t $DOCKER_IMAGE_NAME:$BUILD_NUMBER .'
+                sh 'docker tag $DOCKER_IMAGE_NAME:$BUILD_NUMBER $DOCKER_IMAGE_NAME:latest'
+            }
+        }
+        
+        stage('Push to Registry') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', 
+                                                 usernameVariable: 'DOCKERHUB_USER', 
+                                                 passwordVariable: 'DOCKERHUB_PASS')]) {
+                    sh 'echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin'
+                    sh 'docker push $DOCKER_IMAGE_NAME:$BUILD_NUMBER'
+                    sh 'docker push $DOCKER_IMAGE_NAME:latest'
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                script {
+                    // AWS ECS deployment example
+                    sh '''
+                        aws ecs update-service \
+                            --cluster your-cluster-name \
+                            --service your-service-name \
+                            --force-new-deployment \
+                            --region $AWS_REGION
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            archiveArtifacts artifacts: 'deployment-proof/**/*', allowEmptyArchive: true
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
