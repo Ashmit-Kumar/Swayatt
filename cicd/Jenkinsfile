@@ -31,6 +31,7 @@ pipeline {
                     env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
                     env.BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M%S", returnStdout: true).trim()
                     echo "Commit: ${env.GIT_COMMIT_SHORT}, Timestamp: ${env.BUILD_TIMESTAMP}"
+                    echo "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
                 }
             }
         }
