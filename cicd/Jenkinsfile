@@ -2,25 +2,20 @@ pipeline {
     agent { label 'swayatt-pipeline' }
 
     environment {
-        // Docker Configuration
         DOCKER_IMAGE_NAME = 'ashmit/swayatt-logo-server'
         DOCKER_REGISTRY = 'docker.io'
 
-        // AWS Configuration
         AWS_REGION = 'ap-south-1'
         EC2_INSTANCE_ID = credentials('aws-ec2-instance-id')
         EC2_HOST = credentials('aws-ec2-host')
         EC2_USER = 'ec2-user'
 
-        // Application Configuration
         APP_NAME = 'swayatt-logo-server'
         APP_PORT = '3000'
         CONTAINER_NAME = 'swayatt-app'
     }
 
-    triggers {
-        githubPush()
-    }
+    triggers { githubPush() }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
@@ -29,6 +24,7 @@ pipeline {
     }
 
     stages {
+
         stage('Setup Build Info') {
             steps {
                 script {
@@ -43,11 +39,15 @@ pipeline {
             steps {
                 script {
                     echo "=== Checkout & Setup Stage ==="
-                    echo "Branch: ${env.BRANCH_NAME}"
+                    echo "Branch: ${env.BRANCH_NAME ?: 'dev'}"
                     echo "Build Number: ${env.BUILD_NUMBER}"
                     echo "Git Commit: ${env.GIT_COMMIT_SHORT}"
 
-                    sh 'mkdir -p deployment-proof/screenshots deployment-proof/logs'
+                    sh '''
+                        mkdir -p deployment-proof/screenshots deployment-proof/logs
+                        touch deployment-proof/logs/build-log.txt
+                        touch deployment-proof/pipeline-summary.txt
+                    '''
                 }
             }
         }
@@ -57,10 +57,8 @@ pipeline {
                 dir('app') {
                     script {
                         echo "=== Build & Test Stage ==="
-
                         sh 'npm install'
 
-                        // Run tests if present
                         def testResult = sh(script: 'npm test --if-present', returnStatus: true)
                         if (testResult != 0 && fileExists('package.json')) {
                             def packageJson = readJSON file: 'package.json'
@@ -70,7 +68,6 @@ pipeline {
                         }
                         echo "Tests completed successfully"
 
-                        // Validate application can start
                         sh '''
                             timeout 10s node app.js &
                             PID=$!
@@ -84,12 +81,11 @@ pipeline {
             post {
                 always {
                     node('swayatt-pipeline') {
-                        sh 'echo "Build completed at $(date)" > deployment-proof/logs/build-log.txt'
+                        sh 'echo "Build completed at $(date)" > deployment-proof/logs/build-log.txt || true'
                     }
                 }
             }
         }
-
 
         stage('Code Quality & Security') {
             parallel {
@@ -121,27 +117,20 @@ pipeline {
             steps {
                 script {
                     echo "=== Dockerize Stage ==="
-
                     def imageTag = "${BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
                     def imageName = "${DOCKER_IMAGE_NAME}:${imageTag}"
                     def latestImage = "${DOCKER_IMAGE_NAME}:latest"
 
                     sh """
                         docker build -f cicd/docker/dockerfile -t ${imageName} .
-                        docker tag ${imageName} ${latestImage}
-                        echo "Docker image built successfully"
+                        docker tag ${imageName} ${latestImage} || true
                     """
-
-                    // Test the Docker image
                     sh """
                         docker run --rm -d --name test-container -p 3001:3000 ${imageName}
                         sleep 10
                         curl -f http://localhost:3001/ || echo "Container test endpoint check"
                         docker stop test-container || true
-                        echo "Docker image test completed"
                     """
-
-                    // Save image info
                     sh """
                         echo "IMAGE_TAG=${imageTag}" > deployment-proof/image-info.txt
                         echo "IMAGE_NAME=${imageName}" >> deployment-proof/image-info.txt
@@ -150,7 +139,6 @@ pipeline {
                 }
             }
         }
-
         stage('Push to Registry') {
             steps {
                 script {
