@@ -58,6 +58,12 @@ pipeline {
                         sudo usermod -aG docker $USER || true
                         sudo systemctl restart docker || true
                         sudo chmod 666 /var/run/docker.sock || true
+                        
+                        # Setup CloudWatch logging
+                        echo "$(date): Pipeline started - Build ${BUILD_NUMBER}" >> deployment-proof/logs/pipeline-activity.log
+                        
+                        # Ensure CloudWatch agent is running
+                        sudo systemctl status amazon-cloudwatch-agent || echo "CloudWatch agent not installed"
                     '''
                 }
             }
@@ -174,12 +180,18 @@ pipeline {
                     echo "=== Deploying Locally on Jenkins Node ==="
                     def imageTag = "${BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
                     sh """
+                        # Log deployment start
+                        echo "\$(date): Starting deployment of ${imageTag}" >> deployment-proof/logs/pipeline-activity.log
+                        
                         sudo docker stop swayatt-app-dev || true
                         sudo docker rm swayatt-app-dev || true
                         sudo docker rmi ${DOCKER_IMAGE_NAME}:latest || true
                         sudo docker pull ${DOCKER_IMAGE_NAME}:${imageTag}
                         sudo docker tag ${DOCKER_IMAGE_NAME}:${imageTag} ${DOCKER_IMAGE_NAME}:latest
                         sudo docker run -d --name swayatt-app-dev --restart unless-stopped -p 3000:3000 -e NODE_ENV=dev ${DOCKER_IMAGE_NAME}:latest
+                        
+                        # Log successful deployment
+                        echo "\$(date): SUCCESS - Deployment completed for ${imageTag}" >> deployment-proof/logs/pipeline-activity.log
                     """
                 }
             }
