@@ -39,7 +39,9 @@ pipeline {
             steps {
                 script {
                     echo "=== Checkout & Setup Stage ==="
-                    echo "Branch: ${env.BRANCH_NAME ?: 'dev'}"
+                    // Set branch name if not available
+                    env.BRANCH_NAME = env.BRANCH_NAME ?: 'dev'
+                    echo "Branch: ${env.BRANCH_NAME}"
                     echo "Build Number: ${env.BUILD_NUMBER}"
                     echo "Git Commit: ${env.GIT_COMMIT_SHORT}"
 
@@ -47,6 +49,11 @@ pipeline {
                         mkdir -p deployment-proof/screenshots deployment-proof/logs
                         touch deployment-proof/logs/build-log.txt
                         touch deployment-proof/pipeline-summary.txt
+                        
+                        # Fix Docker permissions
+                        sudo usermod -aG docker $USER || true
+                        sudo systemctl restart docker || true
+                        sudo chmod 666 /var/run/docker.sock || true
                     '''
                 }
             }
@@ -80,8 +87,11 @@ pipeline {
             }
             post {
                 always {
-                    node('swayatt-pipeline') {
-                        sh 'echo "Build completed at $(date)" > deployment-proof/logs/build-log.txt || true'
+                    script {
+                        sh '''
+                            mkdir -p deployment-proof/logs || true
+                            echo "Build completed at $(date)" > deployment-proof/logs/build-log.txt || true
+                        '''
                     }
                 }
             }
@@ -122,6 +132,9 @@ pipeline {
                     def latestImage = "${DOCKER_IMAGE_NAME}:latest"
 
                     sh """
+                        # Fix Docker permissions before building
+                        sudo chmod 666 /var/run/docker.sock || true
+                        
                         docker build -f cicd/docker/dockerfile -t ${imageName} .
                         docker tag ${imageName} ${latestImage} || true
                     """
@@ -262,45 +275,61 @@ pipeline {
 
     post {
         always {
-            node('swayatt-pipeline') {
-                script {
-                    echo "=== Pipeline Cleanup ==="
-                    archiveArtifacts artifacts: 'deployment-proof/**/*', allowEmptyArchive: true
-                    sh 'docker system prune -f || true'
+            script {
+                echo "=== Pipeline Cleanup ==="
+                
+                // Ensure deployment-proof directory exists
+                sh '''
+                    mkdir -p deployment-proof/logs || true
+                    touch deployment-proof/pipeline-summary.txt || true
+                '''
+                
+                archiveArtifacts artifacts: 'deployment-proof/**/*', allowEmptyArchive: true
+                
+                // Fix Docker permissions and cleanup
+                sh '''
+                    sudo chmod 666 /var/run/docker.sock || true
+                    docker system prune -f || true
+                '''
 
-                    sh """
-                        echo "=== Pipeline Summary ===" > deployment-proof/pipeline-summary.txt
-                        echo "Build Number: ${BUILD_NUMBER}" >> deployment-proof/pipeline-summary.txt
-                        echo "Git Commit: ${GIT_COMMIT_SHORT}" >> deployment-proof/pipeline-summary.txt
-                        echo "Branch: ${BRANCH_NAME}" >> deployment-proof/pipeline-summary.txt
-                        echo "Timestamp: ${BUILD_TIMESTAMP}" >> deployment-proof/pipeline-summary.txt
-                        echo "Status: \${currentBuild.currentResult}" >> deployment-proof/pipeline-summary.txt
-                    """
-                }
+                // Set branch name if not available
+                env.BRANCH_NAME = env.BRANCH_NAME ?: 'dev'
+                
+                sh """
+                    echo "=== Pipeline Summary ===" > deployment-proof/pipeline-summary.txt
+                    echo "Build Number: ${BUILD_NUMBER}" >> deployment-proof/pipeline-summary.txt
+                    echo "Git Commit: ${GIT_COMMIT_SHORT}" >> deployment-proof/pipeline-summary.txt
+                    echo "Branch: ${env.BRANCH_NAME}" >> deployment-proof/pipeline-summary.txt
+                    echo "Timestamp: ${BUILD_TIMESTAMP}" >> deployment-proof/pipeline-summary.txt
+                    echo "Status: \${currentBuild.currentResult}" >> deployment-proof/pipeline-summary.txt
+                """
             }
         }
         success {
-            node('swayatt-pipeline') {
-                script {
-                    echo "=== Pipeline Completed Successfully! ==="
-                    sh 'echo "SUCCESS: Pipeline completed successfully at $(date)" >> deployment-proof/pipeline-summary.txt'
-                }
+            script {
+                echo "=== Pipeline Completed Successfully! ==="
+                sh '''
+                    mkdir -p deployment-proof || true
+                    echo "SUCCESS: Pipeline completed successfully at $(date)" >> deployment-proof/pipeline-summary.txt
+                '''
             }
         }
         failure {
-            node('swayatt-pipeline') {
-                script {
-                    echo "=== Pipeline Failed! ==="
-                    sh 'echo "FAILURE: Pipeline failed at $(date)" >> deployment-proof/pipeline-summary.txt'
-                }
+            script {
+                echo "=== Pipeline Failed! ==="
+                sh '''
+                    mkdir -p deployment-proof || true
+                    echo "FAILURE: Pipeline failed at $(date)" >> deployment-proof/pipeline-summary.txt
+                '''
             }
         }
         unstable {
-            node('swayatt-pipeline') {
-                script {
-                    echo "=== Pipeline Unstable ==="
-                    sh 'echo "UNSTABLE: Pipeline completed with warnings at $(date)" >> deployment-proof/pipeline-summary.txt'
-                }
+            script {
+                echo "=== Pipeline Unstable ==="
+                sh '''
+                    mkdir -p deployment-proof || true
+                    echo "UNSTABLE: Pipeline completed with warnings at $(date)" >> deployment-proof/pipeline-summary.txt
+                '''
             }
         }
     }
