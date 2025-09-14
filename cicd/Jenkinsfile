@@ -36,6 +36,7 @@ pipeline {
                     env.BUILD_TIMESTAMP = sh(script: "date +%Y%m%d-%H%M%S", returnStdout: true).trim()
                     echo "Commit: ${env.GIT_COMMIT_SHORT}, Timestamp: ${env.BUILD_TIMESTAMP}"
                     echo "HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH"
+                    echo "${DOCKERHUB_USER}, ${DOCKERHUB_TOKEN}"
                 }
             }
         }
