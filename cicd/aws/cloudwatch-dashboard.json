@@ -1,0 +1,116 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "Swayatt/Application", "cpu_usage_user", "InstanceId", "${AWS::EC2::InstanceId}" ],
+          [ ".", "cpu_usage_system", ".", "." ],
+          [ ".", "mem_used_percent", ".", "." ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "ap-south-1",
+        "title": "Swayatt Application - System Metrics",
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "Swayatt/Application", "disk_used_percent", "InstanceId", "${AWS::EC2::InstanceId}" ],
+          [ ".", "swap_used_percent", ".", "." ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "ap-south-1",
+        "title": "Storage Usage",
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "Swayatt/Application", "diskio_read_bytes", "InstanceId", "${AWS::EC2::InstanceId}" ],
+          [ ".", "diskio_write_bytes", ".", "." ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "ap-south-1",
+        "title": "Disk I/O",
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "Swayatt/Application", "tcp_established", "InstanceId", "${AWS::EC2::InstanceId}" ],
+          [ ".", "tcp_time_wait", ".", "." ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "ap-south-1",
+        "title": "Network Connections"
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 12,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/aws/ec2/swayatt-app/docker'\n| fields @timestamp, @message\n| filter @message like /Server running/\n| sort @timestamp desc\n| limit 50",
+        "region": "ap-south-1",
+        "title": "Application Startup Logs",
+        "view": "table"
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 18,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/aws/ec2/swayatt-app/pipeline'\n| fields @timestamp, @message\n| filter @message like /SUCCESS/ or @message like /FAILURE/\n| sort @timestamp desc\n| limit 20",
+        "region": "ap-south-1",
+        "title": "CI/CD Pipeline Status",
+        "view": "table"
+      }
+    }
+  ]
+}
