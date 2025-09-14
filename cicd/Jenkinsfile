@@ -141,7 +141,7 @@ pipeline {
                     sh """
                         docker run --rm -d --name test-container -p 3001:3000 ${imageName}
                         sleep 10
-                        curl -f http://localhost:3001/ || echo "Container test endpoint check"
+                        curl -f -s -o /dev/null -w "HTTP %{http_code}" http://localhost:3001/ || echo "Container health check failed"
                         docker stop test-container || true
                     """
                     sh """
@@ -157,8 +157,7 @@ pipeline {
                 script {
                     echo "=== Push to DockerHub ==="
                     withCredentials([
-                        string(credentialsId: 'dockerhub-token', variable: 'DOCKERHUB_TOKEN'),
-                        string(credentialsId: 'dockerhub-username', variable: 'DOCKERHUB_USER')
+                        usernamePassword(credentialsId: 'dockerhub-token', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')
                     ]) {
                         sh '''
                             echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USER --password-stdin
@@ -190,8 +189,7 @@ pipeline {
                             keyFileVariable: 'SSH_KEY',
                             usernameVariable: 'SSH_USER'
                         ),
-                        string(credentialsId: 'dockerhub-token', variable: 'DOCKERHUB_TOKEN'),
-                        string(credentialsId: 'dockerhub-username', variable: 'DOCKERHUB_USER')
+                        usernamePassword(credentialsId: 'dockerhub-token', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')
                     ]) {
                         sh """
                             ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@${EC2_HOST} '
@@ -210,7 +208,7 @@ pipeline {
                                 sudo docker run -d --name ${containerName} --restart unless-stopped -p ${APP_PORT}:3000 -e NODE_ENV=${environment} ${DOCKER_IMAGE_NAME}:latest
                                 sleep 10
                                 sudo docker ps | grep ${containerName}
-                                curl -f http://localhost:${APP_PORT}/ || echo "Health check endpoint test"
+                                curl -f -s -o /tmp/health_check.html -w "HTTP %{http_code}" http://localhost:${APP_PORT}/ || echo "Health check failed"
                             '
                         """
                     }
@@ -254,7 +252,7 @@ pipeline {
                                 echo "=== Container Logs ==="
                                 sudo docker logs --tail 20 ${containerName}
                                 echo "=== Health Check ==="
-                                curl -f http://localhost:${APP_PORT}/ -o /tmp/health_check.html
+                                curl -f -s -o /tmp/health_check.html -w "HTTP %{http_code}" http://localhost:${APP_PORT}/ || echo "Health check failed"
                                 ls -la /tmp/health_check.html
                                 echo "=== Container Stats ==="
                                 sudo docker stats --no-stream ${containerName}
@@ -301,7 +299,7 @@ pipeline {
                     echo "Git Commit: ${GIT_COMMIT_SHORT}" >> deployment-proof/pipeline-summary.txt
                     echo "Branch: ${env.BRANCH_NAME}" >> deployment-proof/pipeline-summary.txt
                     echo "Timestamp: ${BUILD_TIMESTAMP}" >> deployment-proof/pipeline-summary.txt
-                    echo "Status: \${currentBuild.currentResult}" >> deployment-proof/pipeline-summary.txt
+                    echo "Status: ${currentBuild.currentResult}" >> deployment-proof/pipeline-summary.txt
                 """
             }
         }
