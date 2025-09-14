@@ -2,7 +2,7 @@ pipeline {
     agent { label 'swayatt-pipeline' }
 
     environment {
-        DOCKER_IMAGE_NAME = 'ashmit/swayatt-logo-server'
+        DOCKER_IMAGE_NAME = 'ashmit1020/swayatt-logo-server'
         DOCKER_REGISTRY = 'docker.io'
         
         // DockerHub Credentials
