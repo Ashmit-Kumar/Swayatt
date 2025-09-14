@@ -158,8 +158,7 @@ pipeline {
                 script {
                     echo "=== Push to DockerHub ==="
                     withCredentials([
-                        string(credentialsId: 'dockerhub-username', variable: 'DOCKERHUB_USER'),
-                        string(credentialsId: 'dockerhub-token', variable: 'DOCKERHUB_TOKEN')
+                        usernamePassword(credentialsId: 'dockerhub-username', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')
                     ]) {
                         sh '''
                             echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USER --password-stdin
@@ -191,8 +190,7 @@ pipeline {
                             keyFileVariable: 'SSH_KEY',
                             usernameVariable: 'SSH_USER'
                         ),
-                        string(credentialsId: 'dockerhub-username', variable: 'DOCKERHUB_USER'),
-                        string(credentialsId: 'dockerhub-token', variable: 'DOCKERHUB_TOKEN')
+                        usernamePassword(credentialsId: 'dockerhub-username', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')
                     ]) {
                         sh """
                             ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@${EC2_HOST} '
