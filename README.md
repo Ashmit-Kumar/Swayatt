@@ -1,5 +1,9 @@
 # Swayatt Logo Server - DevOps CI/CD Project
 
+<div align="center">
+  <img src="app/logoswayatt.png" alt="Swayatt Logo" width="200" height="200" style="border-radius: 15px; margin: 20px;"/>
+</div>
+
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Docker](https://img.shields.io/badge/docker-enabled-blue)
 ![Jenkins](https://img.shields.io/badge/jenkins-automated-orange)
@@ -268,6 +272,25 @@ CMD ["node", "app.js"]
 5. **Live Deployment**: Container deployment to cloud infrastructure
 6. **Validation**: Health checks and endpoint verification
 
+### 📸 Deployment Proof
+
+Visual evidence of successful deployment and CI/CD pipeline execution:
+
+#### Jenkins Pipeline Success
+<img src="deployment-proof/Jenkins_Build_Success.png" alt="Jenkins Build Success" width="800" style="border: 1px solid #ddd; border-radius: 8px; margin: 10px 0;"/>
+
+*Successful Jenkins pipeline execution showing all stages completed*
+
+#### Docker Container Running on EC2
+<img src="deployment-proof/EC2_Running_docker_Contaner.png" alt="EC2 Running Docker Container" width="800" style="border: 1px solid #ddd; border-radius: 8px; margin: 10px 0;"/>
+
+*Docker container successfully running on AWS EC2 instance*
+
+#### Live Application Accessible
+<img src="deployment-proof/Live_Accessible.png" alt="Live Application Access" width="800" style="border: 1px solid #ddd; border-radius: 8px; margin: 10px 0;"/>
+
+*Application successfully serving the Swayatt logo at the live URL*
+
 ## 🔗 API Endpoints
 
 ### Main Endpoints
@@ -276,6 +299,15 @@ CMD ["node", "app.js"]
 |----------|--------|-------------|----------|
 | `/` | GET | Serves Swayatt logo | PNG Image |
 | `/health` | GET | Health check | JSON Status |
+
+### Logo Endpoint Preview
+The root endpoint (`/`) serves the following logo:
+
+<div align="center">
+  <img src="app/logoswayatt.png" alt="Swayatt Logo served by API" width="150" height="150" style="border: 2px solid #007acc; border-radius: 10px; margin: 15px;"/>
+  <br>
+  <em>Logo served at the root endpoint</em>
+</div>
 
 ### Example Usage
 
@@ -414,6 +446,18 @@ cat deployment-proof/pipeline-summary.txt
 - [ ] Container image size optimization
 - [ ] Caching strategy implementation
 - [ ] Load balancing configuration
+
+## 📚 Additional Documentation
+
+### Quick Start Guides
+- **[Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Step-by-step deployment guide
+- **[Project Summary](PROJECT_SUMMARY.md)** - Complete implementation overview
+- **[Monitoring Guide](docs/MONITORING.md)** - CloudWatch setup and configuration
+
+### Technical Resources
+- **[CI/CD Pipeline](cicd/Jenkinsfile)** - Complete Jenkins automation
+- **[Docker Configuration](cicd/docker/dockerfile)** - Optimized container build
+- **[CloudWatch Setup](cicd/aws/)** - Monitoring configuration and scripts
 
 ## 🤝 Contributing
 
