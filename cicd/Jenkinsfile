@@ -4,6 +4,10 @@ pipeline {
     environment {
         DOCKER_IMAGE_NAME = 'ashmit/swayatt-logo-server'
         DOCKER_REGISTRY = 'docker.io'
+        
+        // DockerHub Credentials
+        DOCKERHUB_USER = credentials('dockerhub-username')
+        DOCKERHUB_TOKEN = credentials('dockerhub-token')
 
         AWS_REGION = 'ap-south-1'
         EC2_INSTANCE_ID = credentials('aws-ec2-instance-id')
@@ -133,19 +137,18 @@ pipeline {
                     def latestImage = "${DOCKER_IMAGE_NAME}:latest"
 
                     sh """
-                        # Fix Docker permissions before building
                         sudo chmod 666 /var/run/docker.sock || true
-                        
+
+                        docker login -u ${DOCKERHUB_USER} -p ${DOCKERHUB_TOKEN}
+
                         docker build -f cicd/docker/dockerfile -t ${imageName} .
-                        docker tag ${imageName} ${latestImage} || true
-                    """
-                    sh """
+                        docker tag ${imageName} ${latestImage}
+
                         docker run --rm -d --name test-container -p 3001:3000 ${imageName}
                         sleep 10
                         curl -f -s -o /dev/null -w "HTTP %{http_code}" http://localhost:3001/ || echo "Container health check failed"
                         docker stop test-container || true
-                    """
-                    sh """
+
                         echo "IMAGE_TAG=${imageTag}" > deployment-proof/image-info.txt
                         echo "IMAGE_NAME=${imageName}" >> deployment-proof/image-info.txt
                         echo "BUILD_TIME=${BUILD_TIMESTAMP}" >> deployment-proof/image-info.txt
@@ -153,19 +156,16 @@ pipeline {
                 }
             }
         }
+
         stage('Push to Registry') {
             steps {
                 script {
                     echo "=== Push to DockerHub ==="
-                    withCredentials([
-                        usernamePassword(credentialsId: 'dockerhub-username', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')
-                    ]) {
-                        sh '''
-                            echo $DOCKERHUB_TOKEN | docker login -u $DOCKERHUB_USER --password-stdin
-                            docker push ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}-${GIT_COMMIT_SHORT}
-                            docker push ${DOCKER_IMAGE_NAME}:latest
-                        '''
-                    }
+                    sh """
+                        echo ${DOCKERHUB_TOKEN} | docker login -u ${DOCKERHUB_USER} --password-stdin
+                        docker push ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}-${GIT_COMMIT_SHORT}
+                        docker push ${DOCKER_IMAGE_NAME}:latest
+                    """
                 }
             }
         }
@@ -189,8 +189,7 @@ pipeline {
                             credentialsId: 'aws-ec2-ssh-key',
                             keyFileVariable: 'SSH_KEY',
                             usernameVariable: 'SSH_USER'
-                        ),
-                        usernamePassword(credentialsId: 'dockerhub-username', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')
+                        )
                     ]) {
                         sh """
                             ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@${EC2_HOST} '
@@ -200,28 +199,22 @@ pipeline {
                                     sudo sh get-docker.sh
                                     sudo usermod -aG docker \$USER
                                 fi
+
                                 echo ${DOCKERHUB_TOKEN} | sudo docker login -u ${DOCKERHUB_USER} --password-stdin
+
                                 sudo docker stop ${containerName} || true
                                 sudo docker rm ${containerName} || true
                                 sudo docker rmi ${DOCKER_IMAGE_NAME}:latest || true
                                 sudo docker pull ${DOCKER_IMAGE_NAME}:${imageTag}
                                 sudo docker tag ${DOCKER_IMAGE_NAME}:${imageTag} ${DOCKER_IMAGE_NAME}:latest
                                 sudo docker run -d --name ${containerName} --restart unless-stopped -p ${APP_PORT}:3000 -e NODE_ENV=${environment} ${DOCKER_IMAGE_NAME}:latest
+
                                 sleep 10
                                 sudo docker ps | grep ${containerName}
                                 curl -f -s -o /tmp/health_check.html -w "HTTP %{http_code}" http://localhost:${APP_PORT}/ || echo "Health check failed"
                             '
                         """
                     }
-
-                    sh """
-                        echo "Deployment completed at \$(date)" > deployment-proof/deployment-info.txt
-                        echo "Environment: ${environment}" >> deployment-proof/deployment-info.txt
-                        echo "EC2 Instance: ${EC2_INSTANCE_ID}" >> deployment-proof/deployment-info.txt
-                        echo "Container: ${containerName}" >> deployment-proof/deployment-info.txt
-                        echo "Image: ${DOCKER_IMAGE_NAME}:${imageTag}" >> deployment-proof/deployment-info.txt
-                        echo "Port: ${APP_PORT}" >> deployment-proof/deployment-info.txt
-                    """
                 }
             }
         }
